@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Face Search System{% endblock %}
+
+{% block content %}
+<div class="hero-section text-center py-5 mb-5" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 15px;">
+    <div class="container">
+        <h1 class="display-4 mb-4">
+            <i class="fas fa-search-plus"></i> Face Search System
+        </h1>
+        <p class="lead mb-4">
+            Upload an image and search for matching faces in our database using advanced facial recognition technology.
+        </p>
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                    <a href="{{ url_for('upload_file') }}" class="btn btn-light btn-lg me-2">
+                        <i class="fas fa-upload"></i> Start Face Search
+                    </a>
+                    <a href="{{ url_for('add_profile_form') }}" class="btn btn-outline-light btn-lg">
+                        <i class="fas fa-user-plus"></i> Add New Profile
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-info-circle"></i> How It Works</h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="step-item mb-4">
+                            <div class="step-number bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                1
+                            </div>
+                            <div class="step-content ms-3 d-inline-block">
+                                <h5>Upload Image</h5>
+                                <p>Upload an image containing one or more faces that you want to search for.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="step-item mb-4">
+                            <div class="step-number bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                2
+                            </div>
+                            <div class="step-content ms-3 d-inline-block">
+                                <h5>Face Detection</h5>
+                                <p>Our system automatically detects and identifies all faces in your image.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="step-item mb-4">
+                            <div class="step-number bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                3
+                            </div>
+                            <div class="step-content ms-3 d-inline-block">
+                                <h5>Select Face</h5>
+                                <p>Choose which detected face you want to search for in our database.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="step-item mb-4">
+                            <div class="step-number bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                4
+                            </div>
+                            <div class="step-content ms-3 d-inline-block">
+                                <h5>Get Results</h5>
+                                <p>View matching profiles with similarity scores and detailed information.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h4><i class="fas fa-chart-bar"></i> System Statistics</h4>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-12 mb-3">
+                        <div class="stat-item">
+                            <h2 class="text-primary">{{ stats.total_profiles }}</h2>
+                            <p class="text-muted">Total Profiles</p>
+                        </div>
+                    </div>
+                    <div class="col-12 mb-3">
+                        <div class="stat-item">
+                            <h2 class="text-success">{{ stats.total_encodings }}</h2>
+                            <p class="text-muted">Face Encodings</p>
+                        </div>
+                    </div>
+                    <div class="col-12 mb-3">
+                        <div class="stat-item">
+                            <h2 class="text-info">{{ "%.1f"|format(stats.current_tolerance) }}</h2>
+                            <p class="text-muted">Search Tolerance</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="text-center">
+                    <a href="{{ url_for('view_profiles') }}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-eye"></i> View All Profiles
+                    </a>
+                    <a href="{{ url_for('settings') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-cog"></i> Settings
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5><i class="fas fa-lightbulb"></i> Tips</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="fas fa-check-circle text-success"></i> 
+                        Use clear, well-lit images for best results
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check-circle text-success"></i> 
+                        Ensure faces are clearly visible and not obstructed
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check-circle text-success"></i> 
+                        Supported formats: JPG, PNG, GIF, BMP
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check-circle text-success"></i> 
+                        Maximum file size: 16MB
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h4><i class="fas fa-question-circle"></i> Frequently Asked Questions</h4>
+            </div>
+            <div class="card-body">
+                <div class="accordion" id="faqAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="faq1">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse1">
+                                How accurate is the face recognition?
+                            </button>
+                        </h2>
+                        <div id="collapse1" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                Our system uses state-of-the-art face recognition technology with adjustable tolerance levels. 
+                                The accuracy depends on image quality, lighting conditions, and the size of the database.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="faq2">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse2">
+                                What happens to my uploaded images?
+                            </button>
+                        </h2>
+                        <div id="collapse2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                Uploaded images are temporarily stored for processing and face detection. 
+                                Search images can be deleted after use, while profile images are stored securely for matching purposes.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="faq3">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse3">
+                                Can I search for multiple faces at once?
+                            </button>
+                        </h2>
+                        <div id="collapse3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                Yes! When you upload an image with multiple faces, our system will detect all faces and 
+                                allow you to search for each one individually by selecting "Face 1", "Face 2", etc.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

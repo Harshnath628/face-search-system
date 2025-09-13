@@ -1,0 +1,2 @@
+# This file ensures the database directory is tracked by Git
+# Face encodings and profile data will be stored here but are excluded by .gitignore for privacy

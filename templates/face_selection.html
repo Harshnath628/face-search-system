@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block title %}Select Face - Face Search System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header text-center">
+                <h2><i class="fas fa-user-friends"></i> Detected Faces</h2>
+                <p class="text-muted mb-0">
+                    We found {{ detection_result.total_faces }} face(s) in your image. 
+                    Select a face to search for in our database.
+                </p>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="text-center">
+                            <h5>Original Image with Face Detection</h5>
+                            <img src="{{ url_for('uploaded_file', filename=annotated_image.split('/')[-1]) }}" 
+                                 class="img-fluid rounded border" 
+                                 style="max-height: 400px;"
+                                 alt="Annotated Image">
+                            <p class="text-muted mt-2">Green boxes show detected faces with labels</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-center">
+                            <h5>Individual Faces Detected</h5>
+                            <div class="row">
+                                {% for face in detection_result.faces %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="face-box">
+                                        <img src="{{ url_for('uploaded_file', filename=face.cropped_image_path.split('/')[-1]) }}" 
+                                             class="face-image img-fluid rounded"
+                                             alt="Face {{ face.face_id }}">
+                                        <h6 class="mt-2">Face {{ face.face_id }}</h6>
+                                        <button type="button" 
+                                                class="btn btn-primary btn-sm"
+                                                onclick="searchFace({{ face.face_id }})">
+                                            <i class="fas fa-search"></i> Search This Face
+                                        </button>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Search Results Section (will be populated via AJAX) -->
+                <div id="searchResults" style="display: none;">
+                    <hr>
+                    <h4><i class="fas fa-search-plus"></i> Search Results</h4>
+                    <div id="resultsContent"></div>
+                </div>
+                
+                <!-- Loading indicator -->
+                <div id="loadingIndicator" style="display: none;" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Searching database for matches...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Action buttons -->
+<div class="row mt-4">
+    <div class="col-md-12 text-center">
+        <a href="{{ url_for('upload_file') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Upload New Image
+        </a>
+        <a href="{{ url_for('view_profiles') }}" class="btn btn-info">
+            <i class="fas fa-users"></i> View All Profiles
+        </a>
+    </div>
+</div>
+
+<!-- Instructions -->
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="alert alert-info">
+            <h5><i class="fas fa-info-circle"></i> Next Steps:</h5>
+            <ol class="mb-0">
+                <li>Click "Search This Face" button below the face you want to search for</li>
+                <li>Our system will compare the selected face against all profiles in the database</li>
+                <li>You'll see matching profiles with similarity scores</li>
+                <li>Higher similarity scores indicate better matches</li>
+            </ol>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function searchFace(faceId) {
+    // Show loading indicator
+    document.getElementById('loadingIndicator').style.display = 'block';
+    document.getElementById('searchResults').style.display = 'none';
+    
+    // Scroll to loading indicator
+    document.getElementById('loadingIndicator').scrollIntoView({ behavior: 'smooth' });
+    
+    // Disable all search buttons
+    const searchButtons = document.querySelectorAll('button[onclick^="searchFace"]');
+    searchButtons.forEach(btn => {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Searching...';
+    });
+    
+    // Navigate to search results page
+    window.location.href = `/search/{{ session_id }}/${faceId}`;
+}
+
+// Make AJAX request for live search results (optional enhancement)
+function searchFaceAjax(faceId) {
+    // Show loading indicator
+    document.getElementById('loadingIndicator').style.display = 'block';
+    document.getElementById('searchResults').style.display = 'none';
+    
+    const requestData = {
+        session_id: '{{ session_id }}',
+        face_id: faceId
+    };
+    
+    fetch('/api/search_face', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Hide loading indicator
+        document.getElementById('loadingIndicator').style.display = 'none';
+        
+        // Show results section
+        document.getElementById('searchResults').style.display = 'block';
+        
+        // Populate results
+        const resultsContent = document.getElementById('resultsContent');
+        
+        if (data.success && data.matches && data.matches.length > 0) {
+            let html = '<div class="row">';
+            
+            data.matches.forEach(match => {
+                html += `
+                    <div class="col-md-6 mb-3">
+                        <div class="profile-card">
+                            <div class="row">
+                                <div class="col-4">
+                                    <img src="/uploads/${match.profile.image_path.split('/').pop()}" 
+                                         class="img-fluid rounded" style="max-height: 100px;">
+                                </div>
+                                <div class="col-8">
+                                    <h6>${match.profile.name || 'Unknown'}</h6>
+                                    <p class="similarity-score">Similarity: ${match.similarity_score}%</p>
+                                    <p class="text-muted small">${match.profile.description || 'No description'}</p>
+                                    <a href="/profile/${match.profile_id}" class="btn btn-sm btn-outline-primary">
+                                        View Details
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            resultsContent.innerHTML = html;
+        } else {
+            resultsContent.innerHTML = `
+                <div class="alert alert-warning">
+                    <h5><i class="fas fa-exclamation-triangle"></i> No Matches Found</h5>
+                    <p>No matching profiles were found in our database for the selected face.</p>
+                    <p>You might want to:</p>
+                    <ul>
+                        <li>Try uploading a different image with better quality</li>
+                        <li>Add this face as a new profile to the database</li>
+                        <li>Check if the search tolerance settings need adjustment</li>
+                    </ul>
+                </div>
+            `;
+        }
+        
+        // Re-enable search buttons
+        const searchButtons = document.querySelectorAll('button[onclick^="searchFace"]');
+        searchButtons.forEach((btn, index) => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-search"></i> Search This Face';
+        });
+        
+        // Scroll to results
+        document.getElementById('searchResults').scrollIntoView({ behavior: 'smooth' });
+        
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('loadingIndicator').style.display = 'none';
+        document.getElementById('searchResults').style.display = 'block';
+        document.getElementById('resultsContent').innerHTML = `
+            <div class="alert alert-danger">
+                <h5><i class="fas fa-exclamation-triangle"></i> Search Error</h5>
+                <p>An error occurred while searching. Please try again.</p>
+            </div>
+        `;
+        
+        // Re-enable search buttons
+        const searchButtons = document.querySelectorAll('button[onclick^="searchFace"]');
+        searchButtons.forEach((btn, index) => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-search"></i> Search This Face';
+        });
+    });
+}
+</script>
+{% endblock %}
