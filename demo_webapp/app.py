@@ -1,11 +1,14 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory
 import os
+import sys
 import uuid
+from pathlib import Path
 from werkzeug.utils import secure_filename
-from face_detector import FaceDetector
-from face_search import FaceSearchEngine
-from face_database import FaceDatabase
 import json
+
+# Add parent directory to path to import face_search_package
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from face_search_package import FaceSearchSystem, Config, ConfigPresets
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-this'
@@ -18,10 +21,13 @@ MAX_FILE_SIZE = 16 * 1024 * 1024  # 16MB max file size
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
 
-# Initialize components
-face_detector = FaceDetector()
-search_engine = FaceSearchEngine()
-database = FaceDatabase()
+# Initialize the Face Search System with demo configuration
+config = {
+    'database_path': 'demo_face_data',
+    'log_searches': True,
+    'default_tolerance': 0.6
+}
+face_system = FaceSearchSystem(config)
 
 # Global variable to store current session data
 current_session = {}
@@ -33,7 +39,7 @@ def allowed_file(filename):
 @app.route('/')
 def index():
     """Main page"""
-    stats = search_engine.get_search_statistics()
+    stats = face_system.get_statistics()
     return render_template('index.html', stats=stats)
 
 @app.route('/upload', methods=['GET', 'POST'])
@@ -60,7 +66,7 @@ def upload_file():
                 file.save(filepath)
                 
                 # Detect faces in the uploaded image
-                detection_result = face_detector.detect_faces_in_image(filepath)
+                detection_result = face_system.search_faces_in_image(filepath)
                 
                 if detection_result['success'] and detection_result['total_faces'] > 0:
                     # Store session data
@@ -71,9 +77,9 @@ def upload_file():
                         'total_faces': detection_result['total_faces']
                     }
                     
-                    # Draw face boxes on the image for display
+                    # Draw face boxes on the image for display (using detector directly)
                     face_locations = [face['location'] for face in detection_result['faces']]
-                    annotated_image = face_detector.draw_face_boxes(filepath, face_locations)
+                    annotated_image = face_system.detector.draw_face_boxes(filepath, face_locations)
                     
                     return render_template('face_selection.html', 
                                          session_id=session_id,
@@ -106,15 +112,19 @@ def search_face(session_id, face_id):
     session_data = current_session[session_id]
     detected_faces = session_data['detected_faces']
     
-    # Perform search
-    search_result = search_engine.search_by_face_id(detected_faces, face_id)
-    
-    # Get the selected face data
+    # Perform search using the face_id
     selected_face = None
     for face in detected_faces:
         if face['face_id'] == face_id:
             selected_face = face
             break
+    
+    if selected_face:
+        search_result = face_system.get_matches(selected_face['encoding'])
+    else:
+        search_result = {'success': False, 'error': 'Face not found'}
+    
+    # Selected face is already found above
     
     return render_template('search_results.html',
                          search_result=search_result,
@@ -147,27 +157,18 @@ def add_profile():
     file.save(filepath)
     
     try:
-        # Get face encoding
-        face_encoding = face_detector.get_face_encoding_from_image(filepath)
-        
-        if face_encoding is None:
-            flash('No face detected in the image. Please upload an image with a clear face.')
-            os.remove(filepath)  # Clean up
-            return redirect(url_for('add_profile_form'))
-        
-        # Get form data
-        profile_data = {
-            'name': request.form.get('name', ''),
-            'age': request.form.get('age', ''),
-            'description': request.form.get('description', ''),
-            'metadata': {
+        # Add profile using the face system
+        profile_id = face_system.add_profile(
+            name=request.form.get('name', ''),
+            image_path=filepath,
+            age=request.form.get('age', ''),
+            description=request.form.get('description', ''),
+            metadata={
                 'uploaded_by': 'web_interface',
                 'original_filename': filename
             }
-        }
+        )
         
-        # Add to database
-        profile_id = search_engine.add_profile_to_search(profile_data, face_encoding, filepath)
         
         if profile_id:
             flash(f'Profile added successfully! ID: {profile_id}')
@@ -185,14 +186,14 @@ def add_profile():
 @app.route('/profiles')
 def view_profiles():
     """View all profiles in the database"""
-    profiles = search_engine.get_all_profiles()
-    stats = search_engine.get_search_statistics()
+    profiles = face_system.get_all_profiles()
+    stats = face_system.get_statistics()
     return render_template('profiles.html', profiles=profiles, stats=stats)
 
 @app.route('/profile/<profile_id>')
 def view_profile(profile_id):
     """View a specific profile"""
-    profile = search_engine.get_profile(profile_id)
+    profile = face_system.get_profile(profile_id)
     if not profile:
         flash('Profile not found')
         return redirect(url_for('view_profiles'))
@@ -202,7 +203,7 @@ def view_profile(profile_id):
 @app.route('/delete_profile/<profile_id>')
 def delete_profile(profile_id):
     """Delete a profile"""
-    success = search_engine.delete_profile(profile_id)
+    success = face_system.delete_profile(profile_id)
     if success:
         flash('Profile deleted successfully')
     else:
@@ -229,7 +230,17 @@ def api_search_face():
         session_data = current_session[session_id]
         detected_faces = session_data['detected_faces']
         
-        search_result = search_engine.search_by_face_id(detected_faces, face_id)
+        # Find the selected face and get matches
+        selected_face = None
+        for face in detected_faces:
+            if face['face_id'] == face_id:
+                selected_face = face
+                break
+        
+        if selected_face:
+            search_result = face_system.get_matches(selected_face['encoding'])
+        else:
+            search_result = {'success': False, 'error': 'Face not found'}
         return jsonify(search_result)
         
     except Exception as e:
@@ -238,14 +249,14 @@ def api_search_face():
 @app.route('/api/stats')
 def api_stats():
     """API endpoint for statistics"""
-    stats = search_engine.get_search_statistics()
+    stats = face_system.get_statistics()
     return jsonify(stats)
 
 @app.route('/settings')
 def settings():
     """Settings page"""
-    current_tolerance = search_engine.tolerance
-    stats = search_engine.get_search_statistics()
+    current_tolerance = face_system.config.default_tolerance
+    stats = face_system.get_statistics()
     return render_template('settings.html', 
                          current_tolerance=current_tolerance, 
                          stats=stats)
@@ -255,7 +266,7 @@ def update_settings():
     """Update settings"""
     try:
         new_tolerance = float(request.form.get('tolerance', 0.6))
-        search_engine.update_tolerance(new_tolerance)
+        face_system.update_config({'default_tolerance': new_tolerance})
         flash(f'Search tolerance updated to {new_tolerance}')
     except ValueError:
         flash('Invalid tolerance value')

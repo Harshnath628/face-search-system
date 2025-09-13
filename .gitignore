@@ -87,6 +87,23 @@ database/face_encodings.pkl
 database/*.json
 database/*.pkl
 
+# Demo app uploads and data
+demo_webapp/uploads/*.jpg
+demo_webapp/uploads/*.png
+demo_webapp/uploads/*.gif
+demo_webapp/uploads/*.bmp
+demo_webapp/uploads/*.jpeg
+demo_webapp/static/*
+!demo_webapp/uploads/.gitkeep
+!demo_webapp/static/.gitkeep
+demo_face_data/
+face_search_data/
+
+# Package build artifacts
+build/
+dist/
+*.egg-info/
+
 # Logs
 *.log
 logs/
